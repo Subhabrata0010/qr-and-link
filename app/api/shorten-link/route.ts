@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MongoClient } from 'mongodb';
 
-// In-memory storage (use database in production)
-const linkStore = new Map<string, {
-  originalLink: string;
-  clicks: number;
-  maxClicks: number | null;
-  createdAt: Date;
-}>();
+const mongoUri = process.env.MONGODB_URI;
+const client = new MongoClient(mongoUri!);
+
+async function getCollection() {
+  const db = client.db('qr-and-link');
+  return db.collection('links');
+}
 
 function generateRandomId(): string {
   return Math.random().toString(36).substring(2, 8);
@@ -37,16 +38,22 @@ export async function POST(request: NextRequest) {
     // Generate or use custom ID
     const linkId = customText || generateRandomId();
 
+    const collection = await getCollection();
+
     // Check if custom ID already exists
-    if (customText && linkStore.has(customText)) {
-      return NextResponse.json(
-        { error: 'This custom ID is already taken' },
-        { status: 409 }
-      );
+    if (customText) {
+      const existing = await collection.findOne({ _id: customText });
+      if (existing) {
+        return NextResponse.json(
+          { error: 'This custom ID is already taken' },
+          { status: 409 }
+        );
+      }
     }
 
-    // Store the link
-    linkStore.set(linkId, {
+    // Store the link in MongoDB
+    await collection.insertOne({
+      _id: linkId,
       originalLink,
       clicks: 0,
       maxClicks: maxClicks || null,

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MongoClient, ObjectId } from 'mongodb';
 
-// This would connect to your database
-const linkStore = new Map<string, {
-  originalLink: string;
-  clicks: number;
-  maxClicks: number | null;
-  createdAt: Date;
-}>();
+const mongoUri = process.env.MONGODB_URI;
+const client = new MongoClient(mongoUri!);
+
+async function getCollection() {
+  const db = client.db('qr-and-link');
+  return db.collection('links');
+}
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +15,14 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const linkData = linkStore.get(id);
+  // Check cookie first
+  const cachedLink = request.cookies.get(`link_${id}`)?.value;
+  if (cachedLink) {
+    return NextResponse.redirect(cachedLink);
+  }
+
+  const collection = await getCollection();
+  const linkData = await collection.findOne({ _id: new ObjectId(id) });
 
   if (!linkData) {
     return new NextResponse('Link not found', { status: 404 });
@@ -26,9 +34,33 @@ export async function GET(
   }
 
   // Increment click count
-  linkData.clicks++;
-  linkStore.set(id, linkData);
+  await collection.updateOne({ _id: new ObjectId(id) }, { $inc: { clicks: 1 } });
 
-  // Redirect to original URL
-  return NextResponse.redirect(linkData.originalLink);
+  // Set cookie for future requests
+  const response = NextResponse.redirect(linkData.originalLink);
+  response.cookies.set(`link_${id}`, linkData.originalLink, {
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+
+  return response;
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = await request.json();
+
+  const collection = await getCollection();
+  await collection.insertOne({
+    _id: new ObjectId(id),
+    originalLink: body.originalLink,
+    clicks: 0,
+    maxClicks: body.maxClicks || null,
+    createdAt: new Date(),
+  });
+
+  return NextResponse.json({ id, message: 'Link created' });
 }
