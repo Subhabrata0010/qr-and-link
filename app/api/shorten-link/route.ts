@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
-
-const mongoUri = process.env.MONGODB_URI;
-const client = new MongoClient(mongoUri!);
-
-async function getCollection() {
-  const db = client.db('qr-and-link');
-  return db.collection('links');
-}
+import clientPromise from '@/lib/mongodb';
 
 function generateRandomId(): string {
   return Math.random().toString(36).substring(2, 8);
@@ -38,7 +30,9 @@ export async function POST(request: NextRequest) {
     // Generate or use custom ID
     const linkId = customText || generateRandomId();
 
-    const collection = await getCollection();
+    const client = await clientPromise;
+    const db = client.db('qr-and-link');
+    const collection = db.collection('links');
 
     // Check if custom ID already exists
     if (customText) {

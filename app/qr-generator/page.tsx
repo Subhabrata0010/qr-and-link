@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, QrCode, Download, X, Check, Home } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,23 +27,29 @@ export default function QRGeneratorPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrCodeRef = useRef<any>(null);
 
+  // Client-side Cloudinary upload
   const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch('/api/upload-icon', {
-        method: 'POST',
-        body: formData,
-      });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', process.env.NEXT_PUBLIC_UPLOAD_PRESET!);
+      formData.append('folder', process.env.NEXT_PUBLIC_CLOUD_FOLDER!);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDNAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
       const data = await response.json();
-      setIconUrl(data.url);
+      setIconUrl(data.secure_url);
       setUploading(false);
     } catch (error) {
       console.error('Upload failed:', error);
@@ -58,7 +64,6 @@ export default function QRGeneratorPage() {
       return;
     }
 
-    // In real implementation, use qr-code-styling library
     const QRCodeStyling = (await import('qr-code-styling')).default;
 
     const options: any = {
@@ -145,7 +150,7 @@ export default function QRGeneratorPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Settings Panel */}
-          <div className="bg-slate-800 rounded-xl p-6 shadow-2xl">
+          <div className="bg-slate-800 rounded-xl p-6 shadow-2xl max-h-[calc(100vh-200px)] overflow-y-auto">
             <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
             
             <div className="space-y-6">
@@ -163,7 +168,7 @@ export default function QRGeneratorPage() {
                 />
               </div>
 
-              {/* Icon Upload */}
+              {/* Icon Upload - OPTIONAL */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Center Icon (Optional)
