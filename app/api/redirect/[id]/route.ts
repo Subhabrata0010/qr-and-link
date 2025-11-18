@@ -10,11 +10,11 @@ const linkStore = new Map<string, {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const linkId = params.id;
+  const { id } = await params;
 
-  const linkData = linkStore.get(linkId);
+  const linkData = linkStore.get(id);
 
   if (!linkData) {
     return new NextResponse('Link not found', { status: 404 });
@@ -27,7 +27,7 @@ export async function GET(
 
   // Increment click count
   linkData.clicks++;
-  linkStore.set(linkId, linkData);
+  linkStore.set(id, linkData);
 
   // Redirect to original URL
   return NextResponse.redirect(linkData.originalLink);
