@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
     // Generate or use custom ID
     const linkId = customText || generateRandomId();
 
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db('qr-and-link');
     const collection = db.collection('links');
@@ -62,10 +64,11 @@ export async function POST(request: NextRequest) {
       success: true,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Shorten link error:', error);
+    console.error('Error details:', error.message, error.stack);
     return NextResponse.json(
-      { error: 'Failed to shorten link' },
+      { error: 'Failed to shorten link', details: error.message },
       { status: 500 }
     );
   }
