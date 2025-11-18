@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, QrCode, Download, X, Check, Home } from 'lucide-react';
 import Link from 'next/link';
 
 export default function QRGeneratorPage() {
+  const [mounted, setMounted] = useState(false);
   const [qrText, setQrText] = useState('');
   const [qrColorType, setQrColorType] = useState<'solid' | 'gradient'>('solid');
   const [qrColor, setQrColor] = useState('#000000');
@@ -26,6 +27,10 @@ export default function QRGeneratorPage() {
   const [generated, setGenerated] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrCodeRef = useRef<any>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Client-side Cloudinary upload
   const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +68,8 @@ export default function QRGeneratorPage() {
       alert('Please enter text for QR code');
       return;
     }
+
+    if (!mounted) return;
 
     const QRCodeStyling = (await import('qr-code-styling')).default;
 
@@ -111,16 +118,25 @@ export default function QRGeneratorPage() {
       }
     };
 
+    const container = document.getElementById('qrcode-container');
+    if (!container) return;
+
+    // Properly clean up existing QR code
     if (qrCodeRef.current) {
-      qrCodeRef.current.update(options);
-    } else {
-      qrCodeRef.current = new QRCodeStyling(options);
-      const container = document.getElementById('qrcode-container');
-      if (container) {
-        container.innerHTML = '';
-        qrCodeRef.current.append(container);
+      try {
+        // Remove all child nodes properly
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        qrCodeRef.current = null;
+      } catch (error) {
+        console.error('Cleanup error:', error);
       }
     }
+
+    // Create new QR code
+    qrCodeRef.current = new QRCodeStyling(options);
+    qrCodeRef.current.append(container);
 
     setGenerated(true);
   };
@@ -132,6 +148,14 @@ export default function QRGeneratorPage() {
     }
     qrCodeRef.current.download({ name: 'qr_code', extension: downloadFormat });
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
